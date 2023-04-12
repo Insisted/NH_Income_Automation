@@ -53,8 +53,7 @@ def main(data, num):
     start = data[num:]
     max_data = max(
         start,
-        key=lambda x: (y := re.match(
-            r'^.*(?=@)', x.get('username')).span())[1] - y[0]
+        key=lambda x: (y := re.match(r'^.*(?=@)', x.get('username')).span())[1] - y[0]
     )
     max_len = len(
         re.sub(r'@.*', '', max_data.get('username'))
