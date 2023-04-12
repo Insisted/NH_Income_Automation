@@ -62,10 +62,10 @@ def main(data, num):
     # FIXME: Firefox can run on incognito mode but it can't print the proper days
     #        on `print_claimed` (cookies related), now its argument is `--start-maximized`
     browser_options = config.get('options')()
+    browser_options.add_argument(config.get('arguments'))
 
     if config.get('arguments') in ('-incognito', '-inprivate'):
         # Simple check, only for Chrome and Edge.
-        browser_options.add_argument(config.get('arguments'))
         browser_options.add_experimental_option(
             'excludeSwitches',
             ['enable-logging']
