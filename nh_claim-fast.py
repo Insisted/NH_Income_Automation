@@ -19,17 +19,18 @@ from bs4 import BeautifulSoup
 
 
 PATH = Path(__file__).parent
-PERIOD = (datetime.utcnow() + timedelta(hours=7)).month
+PERIOD = datetime.utcnow() + timedelta(hours=7)
+PERIOD_D = PERIOD.replace(month=PERIOD.month%12+1, day=1) - timedelta(days=1)
 LOGIN_URL = 'https://kageherostudio.com/payment/server_.php'
 CLAIM_URL = 'https://kageherostudio.com/event/index_.php?act=daily'
 EVENT_URL = 'https://kageherostudio.com/event/?event=daily'
 USER_NAME = 'txtuserid'
 PASS_NAME = 'txtpassword'
-REWARD_CLS = '.reward-star'
-REWARD_ATTR = 'data-id'
 ITEM_POST = 'itemId'
 PROD_POST = 'periodId'
 SRVR_POST = 'selserver'
+REWARD_CLS = '.reward-star'
+REWARD_ATTR = 'data-id'
 
 
 def main(data, num):
@@ -52,44 +53,50 @@ def main(data, num):
 
         print(f'{str(n+num+1)+".":<3} {re.sub(r"@.*", "", _username):<{max_len}}', end='')
 
-        cookie = login_cookie(_username, _password)
+        cookie_jar = login_cookie(_username, _password)
 
         session = requests.Session()
+        session.cookies = cookie_jar
 
-        try: claim(session, cookie, _server)
+        html = session.get(EVENT_URL)
+        sess_html = BeautifulSoup(
+            html.text,
+            'html.parser'
+        )
+
+        try: claim(session, sess_html, _server)
         except IndexError: is_claimed = True
 
-        print_claimed(session, is_claimed)
+        print_claimed(sess_html, is_claimed)
         time.sleep(1)
 
     else:
         print('SUCCEED!!!')
 
 
-def claim(session, cookie, server):
-    session.cookies.set('PHPSESSID', cookie['PHPSESSID'])
-
-    html = session.get(EVENT_URL)
-    item_id = BeautifulSoup(
-        html.text,
-        'html.parser'
-    ).select(REWARD_CLS)[0][REWARD_ATTR]
+def claim(session, sess_html, server):
+    item_id = sess_html.select(REWARD_CLS)[0][REWARD_ATTR]
 
     session.post(CLAIM_URL, data={
         ITEM_POST: item_id,
-        PROD_POST: PERIOD,
+        PROD_POST: PERIOD.month,
         SRVR_POST: server,
     })
 
 
-def print_claimed(session, is_claimed):
-    html = session.get(EVENT_URL)
-    claimed = BeautifulSoup(
-        html.text,
-        'html.parser'
-    ).select('h5')[0].text.replace('LOGIN COUNT ', '')
+def print_claimed(sess_html, is_claimed):
+    claimed = int(
+        re.search(
+            r'\d+',
+            sess_html.select('h5')[0].text
+        ).group()
+    )
 
-    print((' ALREADY CLAIMED' if is_claimed else ' CLAIMED') + claimed)
+    print(
+        f' {"ALREADY "*is_claimed}CLAIMED: {claimed+(not is_claimed)}/{PERIOD_D.day} DAY{"S"*(claimed > 1)}'
+        if claimed
+        else ' ERROR: Wrong Login Credential'
+    )
 
 
 def login_cookie(username, password):
@@ -102,9 +109,11 @@ def login_cookie(username, password):
     cookie_jar = cookiejar.CookieJar()
     opener = request.build_opener(request.HTTPCookieProcessor(cookie_jar))
 
+    # FIXME: This line took too long to finish the request
+    #        Might have to change that in the future
     opener.open(LOGIN_URL, data=login_data)
 
-    return {cookie.name: cookie.value for cookie in cookie_jar}
+    return cookie_jar
 
 
 if __name__ == '__main__':
