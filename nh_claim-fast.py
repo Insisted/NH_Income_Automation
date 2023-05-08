@@ -10,9 +10,7 @@ import re
 import sys
 import time
 from datetime import datetime, timedelta
-from http import cookiejar
 from pathlib import Path
-from urllib import parse, request
 
 import requests
 from bs4 import BeautifulSoup
@@ -53,10 +51,7 @@ def main(data, num):
 
         print(f'{str(n+num+1)+".":<3} {re.sub(r"@.*", "", _username):<{max_len}}', end='')
 
-        cookie_jar = login_cookie(_username, _password)
-
         session = requests.Session()
-        session.cookies = cookie_jar
 
         html = session.get(EVENT_URL)
         sess_html = BeautifulSoup(
@@ -99,21 +94,13 @@ def print_claimed(sess_html, is_claimed):
     )
 
 
-def login_cookie(username, password):
+def login(session, username, password):
     data = {
         USER_NAME: username,
         PASS_NAME: password,
     }
-    login_data = parse.urlencode(data).encode('utf-8')
 
-    cookie_jar = cookiejar.CookieJar()
-    opener = request.build_opener(request.HTTPCookieProcessor(cookie_jar))
-
-    # FIXME: This line took too long to finish the request
-    #        Might have to change that in the future
-    opener.open(LOGIN_URL, data=login_data)
-
-    return cookie_jar
+    session.post(LOGIN_URL, data=data)
 
 
 if __name__ == '__main__':
