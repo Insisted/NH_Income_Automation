@@ -53,6 +53,8 @@ def main(data, num):
 
         session = requests.Session()
 
+        login(session, _username, _password)
+
         html = session.get(EVENT_URL)
         sess_html = BeautifulSoup(
             html.text,
