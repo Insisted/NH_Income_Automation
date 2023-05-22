@@ -43,6 +43,7 @@ def main(data, num):
         key=len
     )
     max_len = len(max_data)
+    fails = 0
 
     for n, user in enumerate(start):
         _username = user.get('username')
@@ -65,11 +66,11 @@ def main(data, num):
         try: claim(session, sess_html, _server)
         except IndexError: is_claimed = True
 
-        print_claimed(sess_html, is_claimed)
+        fails += print_claimed(sess_html, is_claimed)
         time.sleep(1)
 
     else:
-        print('SUCCEED!!!')
+        print(f'{fails} failed attempt{"s"*(fails > 1)}' if fails else 'SUCCEED!!!')
 
 
 def claim(session, sess_html, server):
@@ -95,6 +96,8 @@ def print_claimed(sess_html, is_claimed):
         if claimed
         else ' ERROR: Wrong Login Credential'
     )
+
+    return not claimed
 
 
 def login(session, username, password):
