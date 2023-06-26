@@ -92,7 +92,7 @@ def print_claimed(sess_html, is_claimed):
     )
 
     print(
-        f' {"ALREADY "*is_claimed}CLAIMED: {claimed+(not is_claimed)}/{PERIOD_D.day} DAY{"S"*(claimed > 1)}'
+        f' {"ALREADY "*is_claimed}CLAIMED: {claimed+(not is_claimed)}/{PERIOD_D.day} DAY{"S"*(claimed+1 > 1)}'
         if claimed
         else ' ERROR: Wrong Login Credential'
     )
