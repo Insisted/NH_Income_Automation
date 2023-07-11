@@ -91,13 +91,15 @@ def print_claimed(sess_html, is_claimed):
         ).group()
     )
 
+    logged_in = sess_html.select('p.userid')
+
     print(
-        f' {"ALREADY "*is_claimed}CLAIMED: {claimed+(not is_claimed)}/{PERIOD_D.day} DAY{"S"*(claimed+1 > 1)}'
-        if claimed
+        f' {"ALREADY "*is_claimed}CLAIMED: {claimed+(not is_claimed)}/{PERIOD_D.day} DAYS'
+        if logged_in
         else ' ERROR: Wrong Login Credential'
     )
 
-    return not claimed
+    return not logged_in
 
 
 def login(session, username, password):
