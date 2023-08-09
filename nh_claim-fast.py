@@ -3,9 +3,13 @@ Another Version of nh_claim.py
 
 Will be faster because not using GUI to do the task
 Using POST/GET Request to do the task
+Now taking advantage of multithreading
 """
 
+import concurrent.futures
+import itertools
 import json
+import os
 import re
 import sys
 import time
@@ -31,46 +35,73 @@ REWARD_CLS = '.reward-star'
 REWARD_ATTR = 'data-id'
 
 
-def main(data, num):
-    start = data[num:]
+def main(data):
     max_data = max(
         map(
             lambda x: re.search(
                 r'^.*(?=@)', x.get('username')
             ).group(),
-            start
+            data
         ),
         key=len
     )
     max_len = len(max_data)
+
+    n_cores = os.cpu_count()
+    n_threads = min(n_cores * 2, len(data)+1)
+    stop = [0]
     fails = 0
 
-    for n, user in enumerate(start):
-        _username = user.get('username')
-        _password = user.get('password')
-        _server = user.get('server')
-        is_claimed = False
+    with concurrent.futures.ThreadPoolExecutor(max_workers=n_threads) as executor:
+        executor.submit(print_wait, stop)
 
-        print(f'{str(n+num+1)+".":<3} {re.sub(r"@.*", "", _username):<{max_len}}', end='')
+        results = [executor.submit(user_claim, user) for user in data]
 
-        session = requests.Session()
+        for result, user in zip(concurrent.futures.as_completed(results), data):
+            username = user.get('username')
 
-        login(session, _username, _password)
+            try:
+                is_failed, message = result.result()
+                fails += is_failed
 
-        html = session.get(EVENT_URL)
-        sess_html = BeautifulSoup(
-            html.text,
-            'html.parser'
-        )
+                print(f'{re.sub(r"@.*", "", username):<{max_len}} {message}')
+            except Exception as e:
+                print(f'ERROR: {username} - {e}')
 
-        try: claim(session, sess_html, _server)
-        except IndexError: is_claimed = True
+        stop.clear()
 
-        fails += print_claimed(sess_html, is_claimed)
-        time.sleep(1)
+    print(f'{fails} failed attempt{"s"*(fails > 1)}' if fails else 'SUCCEED!!!')
 
-    else:
-        print(f'{fails} failed attempt{"s"*(fails > 1)}' if fails else 'SUCCEED!!!')
+
+def print_wait(stop):
+    for dot in itertools.cycle(['.', '..', '...']):
+        if not stop:
+            break
+
+        print(f'waiting{dot:<3}', end='\r')
+        time.sleep(0.5)
+
+
+def user_claim(user):
+    _username = user.get('username')
+    _password = user.get('password')
+    _server = user.get('server')
+    is_claimed = False
+
+    session = requests.Session()
+
+    login(session, _username, _password)
+
+    html = session.get(EVENT_URL)
+    sess_html = BeautifulSoup(
+        html.text,
+        'html.parser'
+    )
+
+    try: claim(session, sess_html, _server)
+    except IndexError: is_claimed = True
+
+    return check_claim(sess_html, is_claimed)
 
 
 def claim(session, sess_html, server):
@@ -83,23 +114,22 @@ def claim(session, sess_html, server):
     })
 
 
-def print_claimed(sess_html, is_claimed):
-    claimed = int(
+def check_claim(sess_html, is_claimed):
+    n_claim = int(
         re.search(
             r'\d+',
             sess_html.select('h5')[0].text
         ).group()
     )
 
-    logged_in = sess_html.select('p.userid')
-
-    print(
-        f' {"ALREADY "*is_claimed}CLAIMED: {claimed+(not is_claimed)}/{PERIOD_D.day} DAYS'
-        if logged_in
-        else ' ERROR: Wrong Login Credential'
+    is_logged = sess_html.select('p.userid')
+    message = (
+        f'{"ALREADY "*is_claimed}CLAIMED: {n_claim+(not is_claimed)}/{PERIOD_D.day} DAYS'
+        if is_logged
+        else 'ERROR: Wrong Login Credential'
     )
 
-    return not logged_in
+    return (not is_logged, message)
 
 
 def login(session, username, password):
@@ -112,6 +142,8 @@ def login(session, username, password):
 
 
 if __name__ == '__main__':
+    os.system('cls')
+
     with open(PATH / 'data.json', 'r') as json_file:
         data = json.load(json_file)
 
@@ -120,8 +152,10 @@ if __name__ == '__main__':
     else:
         print('\n'.join(f'{str(i+1)+".":<3} {j.get("username")}' for i, j in enumerate(data)))
 
-        num = input(f'Starting Point(1 - {len(data)}): ')
+        num = input(f'Starting Point(1 - {len(data)}): ') or 1
 
         print()
 
-    main(data, min(len(data), max(1, int(num)))-1)
+    start = min(len(data), max(1, int(num)))-1
+
+    main(data[start:])
