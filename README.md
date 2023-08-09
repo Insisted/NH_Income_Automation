@@ -24,7 +24,7 @@ To run:
 <br />
 
 ## `nh_claim-fast.py`
-It's the same with `nh_claim.py` but this uses `POST`/`GET` requests to claim the `Ninja Income`, and significantly more efficient than `nh_claim.py`.
+It's the same with `nh_claim.py` but this uses `POST`/`GET` requests and also utilizing `multithreading` to claim the `Ninja Income`, and ~~significantly~~ ultimately more efficient than `nh_claim.py`.
 
 To run:
 1. Basically the same as `nh_claim.py`'s `1 - 4` instruction above
