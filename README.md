@@ -9,7 +9,7 @@ Script to suatomate Ninja Income claim for those who have many accounts.
 * (nh_claim.py: Optional) you can set the value of `BROWSER` variable inside `nh_claim.py` with either `chrome`, `edge` or `firefox` to make it easier later to run the script with just `nh_claim.py` or just run the script directly
 <br />
 
-## `nh_claim.py`
+## `nh_claim.py` (Discontinued)
 ~~Currently~~ Will only be supporting `Chrome`, `Edge`, and `Firefox` and only on `Windows` presumably <br/>
 The script will run on your browser's private/incognito mode, except for `Firefox`.
 
