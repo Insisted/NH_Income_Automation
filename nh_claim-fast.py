@@ -161,3 +161,5 @@ if __name__ == '__main__':
     start = min(len(data), max(1, int(num)))-1
 
     main(data[start:])
+    
+    os.system('pause')
