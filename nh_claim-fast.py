@@ -33,6 +33,7 @@ PROD_POST = 'periodId'
 SRVR_POST = 'selserver'
 REWARD_CLS = '.reward-star'
 REWARD_ATTR = 'data-id'
+REWARD_PERIOD = 'data-period'
 
 
 def main(data):
@@ -47,8 +48,8 @@ def main(data):
     )
     max_len = len(max_data)
 
-    n_cores = os.cpu_count()
-    n_threads = min(n_cores * 2, len(data)+1)
+    # n_cores = os.cpu_count()
+    n_threads = len(data)+1 # Will use all available threads relative to the data's length
     stop = [0]
     fails = 0
 
@@ -106,10 +107,11 @@ def user_claim(user):
 
 def claim(session, sess_html, server):
     item_id = sess_html.select(REWARD_CLS)[0][REWARD_ATTR]
+    item_period = sess_html.select(REWARD_CLS)[0][REWARD_PERIOD]
 
     session.post(CLAIM_URL, data={
         ITEM_POST: item_id,
-        PROD_POST: PERIOD.month,
+        PROD_POST: item_period,
         SRVR_POST: server,
     })
 
