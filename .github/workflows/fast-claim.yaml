@@ -1,0 +1,26 @@
+name: Fast Claim
+
+on:
+  push:
+  schedule:
+    - cron: "30 17,5 * * *" # 00:30 AM & 00:30 PM UTC+7 Each Day
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.8"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Start Claim
+        run: python nh_claim-fast.py 1
