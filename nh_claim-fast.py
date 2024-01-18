@@ -10,6 +10,7 @@ import concurrent.futures
 import itertools
 import json
 import os
+import platform
 import re
 import sys
 import time
@@ -20,7 +21,9 @@ import requests
 from bs4 import BeautifulSoup
 
 
-PATH = Path(__file__).parent
+ROOT = Path(__file__).parent
+SYSTEM = platform.system()
+
 PERIOD = datetime.utcnow() + timedelta(hours=7)
 PERIOD_D = PERIOD.replace(month=PERIOD.month%12+1, day=1) - timedelta(days=1)
 LOGIN_URL = 'https://kageherostudio.com/payment/server_.php'
@@ -31,9 +34,9 @@ PASS_NAME = 'txtpassword'
 ITEM_POST = 'itemId'
 PROD_POST = 'periodId'
 SRVR_POST = 'selserver'
+REWARD_ID = 'data-id'
 REWARD_CLS = '.reward-star'
-REWARD_ATTR = 'data-id'
-REWARD_PERIOD = 'data-period'
+REWARD_PROD = 'data-period'
 
 
 def main(data):
@@ -49,8 +52,8 @@ def main(data):
     max_len = len(max_data)
 
     # n_cores = os.cpu_count()
-    n_threads = len(data)+1 # Will use all available threads relative to the data's length
-    stop = [0]
+    n_threads = len(data) + 1 # min(n_cores * 2, len(data)+1)
+    stop = []
     fails = 0
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=n_threads) as executor:
@@ -60,23 +63,24 @@ def main(data):
 
         for result, user in zip(concurrent.futures.as_completed(results), data):
             username = user.get('username')
+            username = re.sub(r'@.*', '', username).ljust(max_len)
 
             try:
-                is_failed, message = result.result()
-                fails += is_failed
-
-                print(f'{re.sub(r"@.*", "", username):<{max_len}} {message}')
+                message = result.result()
             except Exception as e:
-                print(f'ERROR: {username} - {e}')
+                message = 'ERROR: ' + e
+                fails += 1
 
-        stop.clear()
+            print(username, message)
 
-    print(f'{fails} failed attempt{"s"*(fails > 1)}' if fails else 'SUCCEED!!!')
+        stop.append(0)
+
+    print(str(fails) + ' failed attempt' + 's'*(fails > 1) if fails else 'SUCCEED!!!')
 
 
 def print_wait(stop):
     for dot in itertools.cycle(['.', '..', '...']):
-        if not stop:
+        if stop:
             break
 
         print(f'waiting{dot:<3}', end='\r')
@@ -84,14 +88,14 @@ def print_wait(stop):
 
 
 def user_claim(user):
-    _username = user.get('username')
-    _password = user.get('password')
-    _server = user.get('server')
-    is_claimed = False
+    username = user.get('username')
+    password = user.get('password')
+    server = user.get('server')
 
     session = requests.Session()
+    is_logged = login(session, username, password)
 
-    login(session, _username, _password)
+    assert is_logged, 'Wrong Login Credential'
 
     html = session.get(EVENT_URL)
     sess_html = BeautifulSoup(
@@ -99,21 +103,33 @@ def user_claim(user):
         'html.parser'
     )
 
-    try: claim(session, sess_html, _server)
-    except IndexError: is_claimed = True
+    is_claimed = claim(session, sess_html, server)
 
     return check_claim(sess_html, is_claimed)
 
 
 def claim(session, sess_html, server):
-    item_id = sess_html.select(REWARD_CLS)[0][REWARD_ATTR]
-    item_period = sess_html.select(REWARD_CLS)[0][REWARD_PERIOD]
+    reward = sess_html.select(REWARD_CLS)
 
-    session.post(CLAIM_URL, data={
+    if not reward:
+        return False
+    
+    item_id = reward[0].get(REWARD_ID)
+    item_prod = reward[0].get(REWARD_PROD)
+
+    result = session.post(CLAIM_URL, data={
         ITEM_POST: item_id,
-        PROD_POST: item_period,
+        PROD_POST: item_prod,
         SRVR_POST: server,
-    })
+    }).json()
+    
+    message = result.get('message')
+    data = result.get('data')
+
+    assert '[-102]' not in data, 'Wrong Server ID'
+    assert 'invalid' not in data, 'Reward/Period Mismatch'
+
+    return message == 'success'
 
 
 def check_claim(sess_html, is_claimed):
@@ -124,14 +140,9 @@ def check_claim(sess_html, is_claimed):
         ).group()
     )
 
-    is_logged = sess_html.select('p.userid')
-    message = (
-        f'{"ALREADY "*is_claimed}CLAIMED: {n_claim+(not is_claimed)}/{PERIOD_D.day} DAYS'
-        if is_logged
-        else 'ERROR: Wrong Login Credential'
-    )
+    message = 'ALREADY '*(not is_claimed) + f'CLAIMED: {n_claim+is_claimed}/{PERIOD_D.day} DAYS'    
 
-    return (not is_logged, message)
+    return message
 
 
 def login(session, username, password):
@@ -140,19 +151,26 @@ def login(session, username, password):
         PASS_NAME: password,
     }
 
-    session.post(LOGIN_URL, data=data)
+    r = session.post(LOGIN_URL, data=data)
+
+    return r.url.endswith('pembayaran.php')
 
 
 if __name__ == '__main__':
-    os.system('cls')
+    os.system('cls' if SYSTEM == 'Windows' else 'clear')
 
-    with open(PATH / 'data.json', 'r') as json_file:
+    with open(ROOT / 'data.json', 'r') as json_file:
         data = json.load(json_file)
 
     if len(arg := sys.argv) > 1 and re.match(r'^\d+$', arg[1]):
         num = arg[1]
     else:
-        print('\n'.join(f'{str(i+1)+".":<3} {j.get("username")}' for i, j in enumerate(data)))
+        print(
+            '\n'.join(
+                str(i+1) + '. ' + j.get('username')
+                for i, j in enumerate(data)
+            )
+        )
 
         num = input(f'Starting Point(1 - {len(data)}): ') or 1
 
@@ -161,5 +179,3 @@ if __name__ == '__main__':
     start = min(len(data), max(1, int(num)))-1
 
     main(data[start:])
-    
-    os.system('pause')
