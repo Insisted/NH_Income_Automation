@@ -59,16 +59,16 @@ def main(data):
     with concurrent.futures.ThreadPoolExecutor(max_workers=n_threads) as executor:
         executor.submit(print_wait, stop)
 
-        results = [executor.submit(user_claim, user) for user in data]
+        futures = [executor.submit(user_claim, user) for user in data]
 
-        for result, user in zip(concurrent.futures.as_completed(results), data):
+        for future, user in zip(concurrent.futures.as_completed(futures), data):
             username = user.get('username')
             username = re.sub(r'@.*', '', username).ljust(max_len)
 
             try:
-                message = result.result()
+                message = future.result()
             except Exception as e:
-                message = 'ERROR: ' + e
+                message = 'ERROR: ' + str(e)
                 fails += 1
 
             print(username, message)
