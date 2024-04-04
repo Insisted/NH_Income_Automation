@@ -61,7 +61,7 @@ def main(data):
 
         futures = [executor.submit(user_claim, user) for user in data]
 
-        for future, user in zip(concurrent.futures.as_completed(futures), data):
+        for future, user in zip(futures, data):
             username = user.get('username')
             username = re.sub(r'@.*', '', username).ljust(max_len)
 
